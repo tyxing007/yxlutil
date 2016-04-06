@@ -895,6 +895,7 @@ public class FileUtil {
 			while ((len = is.read(bs)) != -1) {
 				fos.write(bs, 0, len);
 			}
+			fos.flush();
 		} finally{
 			if(is != null) is.close();
 			if(fos != null) fos.close();
