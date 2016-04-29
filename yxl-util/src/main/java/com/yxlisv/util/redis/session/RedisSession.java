@@ -160,7 +160,7 @@ public class RedisSession implements HttpSession{
 		try {
 			JedisUtil.delete(key);
 		} catch (Exception e) {
-			logger.info("从redis删除session出错：" + e.getMessage());
+			logger.error("从redis删除session出错：" + e.getMessage());
 		}
 	}
 

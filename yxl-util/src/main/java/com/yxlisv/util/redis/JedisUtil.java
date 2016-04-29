@@ -1,6 +1,7 @@
 package com.yxlisv.util.redis;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -8,10 +9,15 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.yxlisv.util.math.NumberUtil;
+import com.yxlisv.util.redis.adapter.JedisAdapter;
+import com.yxlisv.util.redis.adapter.impl.JedisAdapterClusterImpl;
+import com.yxlisv.util.redis.adapter.impl.JedisAdapterImpl;
+import com.yxlisv.util.resource.PropertiesUtil;
 
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisClusterConnectionHandler;
@@ -19,12 +25,6 @@ import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisSlotBasedConnectionHandler;
 import redis.clients.jedis.exceptions.JedisConnectionException;
-
-import com.yxlisv.util.math.NumberUtil;
-import com.yxlisv.util.redis.adapter.JedisAdapter;
-import com.yxlisv.util.redis.adapter.impl.JedisAdapterClusterImpl;
-import com.yxlisv.util.redis.adapter.impl.JedisAdapterImpl;
-import com.yxlisv.util.resource.PropertiesUtil;
 
 /**
  <pre>
@@ -145,7 +145,7 @@ public class JedisUtil {
 	 */
 	public synchronized static void connectServer(){
 		if(connectionAlive) return;
-		logger.info("连接redis server...");
+		logger.info("connecting redis server...");
 		try{
 			//集群模式
 			if (properties.getProperty("redis.cluster").equals("1")) {
@@ -168,11 +168,11 @@ public class JedisUtil {
 			}
 			deleteInvalidKey();
 			connectionAlive = true;
-			logger.info("连接redis server 成功");
+			logger.info("connect redis server success");
 		} catch(Exception e){
 			connectionAlive = false;
 			lastTimeConnectionError = System.currentTimeMillis();
-			logger.error("连接redis server 失败", e);
+			logger.error("connect redis server faild", e);
 		}
 	}
 	
@@ -185,7 +185,7 @@ public class JedisUtil {
 	public static void connectServerFaild(Exception e) {
 		lastTimeConnectionError = System.currentTimeMillis();
 		connectionAlive = false;
-		logger.error("警告：获取redis连接失败，请检查服务器配置", e);
+		logger.error("WARN：connect redis server faild!", e);
 	}
 	
 	
@@ -200,7 +200,7 @@ public class JedisUtil {
 				delete(key);
 				invalidkeys.remove(key);
 			} catch (Exception e) {
-				logger.error("删除无效的redis缓存出错：" + key, e);
+				logger.error("delete invalid redis key error：" + key, e);
 			}
 		}
 	}
@@ -216,7 +216,7 @@ public class JedisUtil {
 		//当前时间 - 最后一次连接redis服务器失败的时间 < 当连接redis服务器失败时，最少间隔多久才能重新尝试，则不允许和redis服务器建立连接
 		long waitTime = (intervalConnectionError * 1000 - (System.currentTimeMillis() - lastTimeConnectionError)) / 1000;
 		if (waitTime>0) {
-			logger.warn("警告：当前操作未使用redis缓存，获取redis连接失败，请检查服务器配置，系统将在" + waitTime + "秒后重新尝试连接...");
+			logger.warn("WARN: not use redis cache, connect redis server faild, " + waitTime + "sec later try agin...");
 			return false;
 		}
 		//重新建立连接
@@ -243,7 +243,7 @@ public class JedisUtil {
 			if(tryCounts > maxConnectCount) connectServerFaild(e);
 			else set(key, value, timeout, tryCounts+1);
 		} catch (Exception e) {
-			logger.error("设置redis缓存失败[key : "+ key +"]" + "[value : "+ value +"]" + "[timeout : "+ timeout +"]", e);
+			logger.error("put redis key faild [key : "+ key +"]" + "[value : "+ value +"]" + "[timeout : "+ timeout +"]", e);
 		}
 	}
 	
@@ -265,7 +265,7 @@ public class JedisUtil {
 			if(tryCounts > maxConnectCount) connectServerFaild(e);
 			else setTimeout(key, timeout, tryCounts+1);
 		} catch (Exception e) {
-			logger.error("设置redis缓存过期时间失败[key : "+ key +"]" + "[timeout : "+ timeout +"]", e);
+			logger.error("setting redis key timeout faild [key : "+ key +"]" + "[timeout : "+ timeout +"]", e);
 		}
 	}
 
@@ -307,7 +307,7 @@ public class JedisUtil {
 			if(tryCounts > maxConnectCount) connectServerFaild(e);
 			else return get(key, tryCounts+1);
 		} catch (Exception e) {
-			logger.error("从redis获取缓存失败[key : "+ key +"]", e);
+			logger.error("get redis key faild [key : "+ key +"]", e);
 		}
 		return null;
 	}
@@ -348,7 +348,7 @@ public class JedisUtil {
 				invalidkeys.add(key);
 			} else delete(key, tryCounts+1);
 		} catch (Exception e) {
-			logger.error("删除redis缓存失败[key : "+ key +"]", e);
+			logger.error("delete redis key faild [key : "+ key +"]", e);
 		}
 	}
 	
@@ -369,7 +369,7 @@ public class JedisUtil {
 			if(tryCounts > maxConnectCount) connectServerFaild(e);
 			else return getKeys(key, tryCounts+1);
 		} catch (Exception e) {
-			logger.error("查询redis keys失败[key : "+ key +"]", e);
+			logger.error("get redis keys faild [key : "+ key +"]", e);
 		}
 		return new HashSet<byte[]>();
 	}
@@ -391,7 +391,7 @@ public class JedisUtil {
 			if(tryCounts > maxConnectCount) connectServerFaild(e);
 			else flushAll(tryCounts+1);
 		} catch (Exception e) {
-			logger.error("redis flushAll失败", e);
+			logger.error("redis flushAll faild", e);
 		}
 	}
 
@@ -413,7 +413,7 @@ public class JedisUtil {
 				invalidkeys.add("*");
 			} else clearAllOfProject(tryCounts+1);
 		} catch (Exception e) {
-			logger.error("redis clearAllOfProject失败", e);
+			logger.error("redis clearAllOfProject faild", e);
 		}
 	}
 
@@ -425,7 +425,7 @@ public class JedisUtil {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void main(String[] args) {
 
-		Map map = new HashedMap();
+		Map map = new HashMap();
 		map.put("tss", "ss");
 		JedisUtil.set("JedisUtil:Test:Map", map);
 		JedisUtil.set("JedisUtil:Test:com.hx.dazibo.video.mode.VideoMapper12312", "1");
